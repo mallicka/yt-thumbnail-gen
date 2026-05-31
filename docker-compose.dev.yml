@@ -1,0 +1,66 @@
+# Local development: Next.js (HMR) + PostgreSQL 17
+#
+# Full stack:
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Postgres only (run Next.js natively with DATABASE_URL pointing at localhost):
+#   docker compose -f docker-compose.dev.yml up postgres -d
+#
+# First-time database setup (from app container or host with swapped DATABASE_URL):
+#   npx prisma db push
+
+x-postgres-credentials: &postgres-credentials
+  POSTGRES_USER: ytthumb
+  POSTGRES_PASSWORD: ytthumb
+  POSTGRES_DB: ytthumbnail
+
+x-postgres-urls: &postgres-urls
+  # Host machine → exposed port 5432 (use in .env DATABASE_URL for native dev)
+  POSTGRES_CONNECTION_URL: postgresql://ytthumb:ytthumb@localhost:5432/ytthumbnail?schema=public
+  # App container → postgres service on the compose network
+  DOCKER_COMPOSE_DATABASE_URL: postgresql://ytthumb:ytthumb@postgres:5432/ytthumbnail?schema=public
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      <<: *postgres-credentials
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ytthumb -d ytthumbnail"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      <<: *postgres-urls
+      IS_IN_DOCKER_COMPOSE: "true"
+      NODE_ENV: development
+      # File watching inside Docker (especially on macOS bind mounts)
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+      - app_next_cache:/app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  app_node_modules:
+  app_next_cache:
