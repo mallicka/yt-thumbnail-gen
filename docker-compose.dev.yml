@@ -19,6 +19,8 @@ x-postgres-urls: &postgres-urls
   POSTGRES_CONNECTION_URL: postgresql://ytthumb:ytthumb@localhost:5432/ytthumbnail?schema=public
   # App container → postgres service on the compose network
   DOCKER_COMPOSE_DATABASE_URL: postgresql://ytthumb:ytthumb@postgres:5432/ytthumbnail?schema=public
+  # Overrides .env DATABASE_URL inside the app container
+  DATABASE_URL: postgresql://ytthumb:ytthumb@postgres:5432/ytthumbnail?schema=public
 
 services:
   postgres:
